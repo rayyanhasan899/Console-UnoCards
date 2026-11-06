@@ -1,3 +1,5 @@
+#include <stdexcept>
+#include <limits>
 // Uno-Cards.cpp : This file contains the 'main' function. Program execution begins and ends there.
 //
 
@@ -105,11 +107,12 @@ private:
     int top;
 public:
     Stack() { top = -1; }
-    void push(char color, int num) { arr[++top].setUnoCards(color, num); }
-    UnoCard pop() { return arr[top--]; }
+    void push(char color, int num) { if (top >= 107) throw std::out_of_range("Draw deck is full"); arr[++top].setUnoCards(color, num); }
+    UnoCard pop() { if (isEmpty()) throw std::out_of_range("Draw deck exhausted; discard recycling is not implemented"); return arr[top--]; }
     int getTop() { return top; }
     bool isEmpty() { return (top == -1) ? true : false; }
     UnoCard getNonSpecialCard(int i) {
+        if (i < 0 || i > top) throw std::out_of_range("No number card remains in the draw deck");
         if (arr[top - i].getNumber() > 9)
             return getNonSpecialCard(i + 1);
         arr[top - i] ^ arr[top];
@@ -172,6 +175,7 @@ public:
     }
 	int getPlayerHandSize() { return playerHandSize; }
 	UnoCard getSpecificCard(int pos) {
+        if (pos < 0 || pos >= playerHandSize) throw std::out_of_range("Invalid hand position");
 		Node* temp = playerHandStart;
 		for (int i = 0;i < pos && temp;i++) {
 			temp = temp->next;
@@ -179,6 +183,7 @@ public:
 		return temp->unocard;
 	}
     void swapCardsInHand(int pos) {
+        if (pos < 0 || pos >= playerHandSize) throw std::out_of_range("Invalid hand position");
         Node* temp = playerHandStart;
         Node* temp1 = playerHandStart;
         for (int i = 0;i < pos;i++)
@@ -444,7 +449,7 @@ public:
         return 0;
     }
 	void playTurn() {
-        char choice;
+        char choice = 's';
         bool check;
         int move;
         check = checkCards();
@@ -477,9 +482,20 @@ public:
             choice = tolower(choice);
             if (choice == 'p' || choice == 'u') {
                 cout << "\nEnter your card number according to your hand like 1,2,3,4,5,6,7 : ";
-                cin >> move;
-                move -= 1;
+                move = -1;
                 while (true) {
+                    if (!(cin >> move)) {
+                        if (cin.eof()) throw std::runtime_error("Input closed");
+                        cin.clear();
+                        cin.ignore((std::numeric_limits<std::streamsize>::max)(), '\n');
+                        cout << "Invalid card number, enter again: ";
+                        continue;
+                    }
+                    --move;
+                    if (move < 0 || move >= tempPlayer->getPlayerHandSize()) {
+                        cout << "Choose a displayed card number: ";
+                        continue;
+                    }
                     if ((tempPlayer->getPlayerHandSize() == 2 && !callUno(choice)) || (tempPlayer->getPlayerHandSize() != 2 && (choice == 'u'))) {
                         cout << "\nYOU GOT CALL UNO TWO PENALTY CARDS";
                         tempPlayer->addAtFront(deck.s);
@@ -494,7 +510,7 @@ public:
                     }
                     else {
                         cout << "\nYour Card is Invalid ENTER AGAIN : ";
-                        cin >> move; move -= 1;
+                        // The next iteration reads and validates a new hand position.
                     }
                 }
                 if (playerCard.getNumber() > 9) {
@@ -509,6 +525,11 @@ public:
 int main()
 {
     srand(time(0));
-    Game g1;
-    g1.playGame();
+    try {
+        Game g1;
+        g1.playGame();
+    } catch (const std::exception& error) {
+        cout << "\nGame ended: " << error.what() << "\n";
+    }
+    return 0;
 }
